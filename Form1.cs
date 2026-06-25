@@ -5,9 +5,10 @@ using System.Windows.Forms;
 namespace SecurityAgent
 
 {
-        public partial class Form1 : Form 
-    { 
-        // 1. Create the bot object here so the whole form can see it
+
+    public partial class Form1 : Form
+
+    {
 
         SecurityAgent agent = new SecurityAgent();
 
@@ -19,30 +20,35 @@ namespace SecurityAgent
 
         }
 
-        private void label1_Click(object sender, EventArgs e)
-        {
-            // Just leave this empty!
-        }
+        private void label1_Click(object sender, EventArgs e) { }
+
         private void Form1_Load(object sender, EventArgs e)
-         
+
         {
 
             try
 
             {
-                agent.FormatOutput = AddTimestamp;
+
+                // Updated Title for the 6th Commit Polish
+
+                this.Text = "CyberDefend Terminal";
+
+                agent.FormatOutput = AppendTimeSignature;
+
+                // Fixed the hardcoded audio path
 
                 System.Media.SoundPlayer player = new System.Media.SoundPlayer("greeting.wav");
 
                 player.Play();
-              
+
                 rtbChatArea.AppendText("**************************************************\n");
 
-                rtbChatArea.AppendText("    Initializing SecureSphere Support Agent...    \n");
+                rtbChatArea.AppendText("    Initializing CyberDefend Support System...    \n");
 
                 rtbChatArea.AppendText("**************************************************\n\n");
 
-                rtbChatArea.AppendText("System ready. Please type your preferred name below and click Send.\n");
+                rtbChatArea.AppendText("System online. Please authenticate with your preferred name below and click Send.\n");
 
             }
 
@@ -60,13 +66,9 @@ namespace SecurityAgent
 
         {
 
-            // Grab the text from the input box
-
             string userInput = txtUserInput.Text;
-          
-        
+
             if (string.IsNullOrWhiteSpace(userInput)) return;
-           
 
             if (string.IsNullOrEmpty(agent.ClientName))
 
@@ -74,39 +76,36 @@ namespace SecurityAgent
 
                 agent.ClientName = userInput;
 
-                rtbChatArea.AppendText($"\nSystem: Name registered as {agent.ClientName}.\n");
+                rtbChatArea.AppendText($"\nSystem: Authentication successful. User {agent.ClientName} registered.\n");
 
-                rtbChatArea.AppendText("[Agent]: How can I assist your digital security today?\n");
+                rtbChatArea.AppendText("[System]: How can I assist your network security today?\n");
 
-                txtUserInput.Clear(); // Clear the text box
+                txtUserInput.Clear();
 
                 return;
 
             }
-            
-
-            // Show what the user typed
 
             rtbChatArea.AppendText($"\n{agent.ClientName}: {userInput}\n");
-           
-            string botResponse = agent.GetBotResponse(userInput);
 
-            // Show the bot's response
+            string botResponse = agent.GetBotResponse(userInput);
 
             rtbChatArea.AppendText($"{botResponse}\n");
 
             txtUserInput.Clear();
 
         }
-        
-        private string AddTimestamp(string message)
+
+        private string AppendTimeSignature(string message)
+
         {
-           
+
             string time = DateTime.Now.ToString("HH:mm");
+
             return $"[{time}] {message}";
+
         }
 
     }
 
 }
- 

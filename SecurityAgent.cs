@@ -1,140 +1,277 @@
 ﻿using System;
-
-using System.Collections.Generic; 
+using System.Collections.Generic;
+using MySql.Data.MySqlClient; // Required for MySQL
 
 namespace SecurityAgent
-
 {
     public delegate string ResponseFormatter(string message);
-    internal class SecurityAgent
 
+    // Renamed helper class for the Mini-Game
+    internal class TriviaItem
     {
-        
-        public string ClientName { get; set; }
+        public string Inquiry { get; set; }
+        public string ValidAnswer { get; set; }
+        public string Reason { get; set; }
+    }
 
+    internal class SecurityAgent
+    {
+        public string ClientName { get; set; }
         public ResponseFormatter FormatOutput;
         public string FavoriteTopic { get; set; } = "";
         public string LastDiscussedTopic { get; set; } = "";
 
-
         private Dictionary<string, string> keywordResponses;
-
         private List<string> phishingTips;
-
         private Random randomGen;
+        // Distinct Activity Log Name
+        private List<string> ActionHistory;
+
+        // Distinct Quiz Variables
+        private bool QuizModeEnabled = false;
+        private int ActiveQuestion = 0;
+        private int TotalPoints = 0;
+        private List<TriviaItem> TriviaBank;
+
+        // DB String - STUDENT MUST ENTER THEIR PASSWORD HERE
+        private string dbConnection = "Server=127.0.0.1;Database=CyberDefendDB;Uid=root;Pwd=YOUR_PASSWORD_HERE;";
 
         public SecurityAgent()
-
         {
-
             randomGen = new Random();
-
             FormatOutput = (msg) => msg;
-            
+            ActionHistory = new List<string>();
+
             phishingTips = new List<string>
-
             {
-
-                "Be cautious of emails asking for personal information. Scammers often disguise themselves as trusted organisations.",
-
-                "Always check the sender's actual email address, not just the display name.",
-
-                "Never click suspicious links. Hover over them to see the real URL first."
-
+                "Always be wary of urgent requests for money or data. Scammers use panic to force mistakes.",
+                "Verify links by hovering over them before clicking to reveal the true destination URL.",
+                "Banks will never ask for your PIN or full password via email or text."
             };
-                        
+
             keywordResponses = new Dictionary<string, string>
-
             {
-
-                { "password", "A robust password should be lengthy, unique, and include a mix of character types. Consider utilizing a secure password manager." },
-
-                { "phishing", "Phishing involves fraudulent communications designed to steal data. Always verify the sender's address and avoid clicking unknown links." },
-
-                { "safe browsing", "Stick to HTTPS encrypted sites and deploy a VPN on public networks to keep your data packets secure." },
-
-                { "scam", "If an offer looks too good to be true, it likely is a scam. Verify the source before proceeding." },
-
-                { "privacy", "Privacy is crucial. Review your security settings on social media and avoid oversharing personal details." }
-
+                { "password", "Use a passphrase instead of a single word. 'BlueHorseBatteryStaple' is harder to crack than 'P@ssw0rd1'." },
+                { "phishing", "Phishing is a deception technique used to harvest credentials. Always verify the source." },
+                { "safe browsing", "Ensure you see the HTTPS lock icon, but remember it only means the connection is encrypted, not that the site is honest." },
+                { "scam", "Beware of unsolicited offers. Verify through official channels before engaging." },
+                { "privacy", "Regularly audit app permissions on your phone to protect your privacy." }
             };
 
+            // Distinct set of 11 questions
+            TriviaBank = new List<TriviaItem>
+            {
+                new TriviaItem { Inquiry = "Q1: What is malware?\nA) Bad hardware\nB) Malicious software\nC) A network error", ValidAnswer = "b", Reason = "Malware includes viruses, ransomware, and spyware designed to harm your device." },
+                new TriviaItem { Inquiry = "Q2: True or False: You should use public Wi-Fi to check your bank account.", ValidAnswer = "false", Reason = "Public networks can be easily intercepted by cybercriminals." },
+                new TriviaItem { Inquiry = "Q3: What is the best defense against ransomware?\nA) Paying the ransom\nB) Offline backups\nC) Changing your password", ValidAnswer = "b", Reason = "If you have a secure offline backup, you can restore your files without paying criminals." },
+                new TriviaItem { Inquiry = "Q4: True or False: Multi-Factor Authentication (MFA) blocks most automated account hacks.", ValidAnswer = "true", Reason = "MFA requires an extra step, making stolen passwords useless on their own." },
+                new TriviaItem { Inquiry = "Q5: Smishing is a cyber attack conducted via:\nA) Email\nB) Phone calls\nC) SMS/Text Messages", ValidAnswer = "c", Reason = "Smishing stands for SMS Phishing." },
+                new TriviaItem { Inquiry = "Q6: True or False: Incognito mode hides your browsing from your internet service provider.", ValidAnswer = "false", Reason = "Incognito only stops local history saving. Your ISP and employer can still see your traffic." },
+                new TriviaItem { Inquiry = "Q7: What does a VPN do?\nA) Makes internet faster\nB) Encrypts your internet traffic\nC) Blocks all ads", ValidAnswer = "b", Reason = "A Virtual Private Network creates a secure tunnel for your data." },
+                new TriviaItem { Inquiry = "Q8: True or False: Phishing emails always have bad spelling and grammar.", ValidAnswer = "false", Reason = "Modern phishing emails, often powered by AI, can be grammatically perfect." },
+                new TriviaItem { Inquiry = "Q9: If you find a random USB drive on the ground, you should:\nA) Plug it in to find the owner\nB) Hand it to IT or throw it away\nC) Format it to use it", ValidAnswer = "b", Reason = "Malicious USB drops are a real tactic used to infect computers automatically." },
+                new TriviaItem { Inquiry = "Q10: True or False: Antivirus software catches 100% of all new viruses.", ValidAnswer = "false", Reason = "No software is perfect; zero-day exploits can bypass antivirus until they are updated." },
+                new TriviaItem { Inquiry = "Q11: The practice of looking over someone's shoulder to steal data is called:\nA) Eavesdropping\nB) Shoulder Surfing\nC) Vishing", ValidAnswer = "b", Reason = "Shoulder surfing is a physical security threat, especially in public spaces." }
+            };
         }
-      
+
+        public void RecordActivity(string eventDesc)
+        {
+            string time = DateTime.Now.ToString("MM/dd HH:mm");
+            ActionHistory.Add($"[{time}] {eventDesc}");
+        }
+
         public string GetBotResponse(string input)
         {
-            input = input.ToLower();               
-     
-            string empathyPrefix = "";
-            if (input.Contains("worried") || input.Contains("scared") || input.Contains("anxious"))
-            {
-                empathyPrefix = "It's completely understandable to feel that way. Scammers can be very convincing. Let me help. ";
-            }
-            else if (input.Contains("frustrated") || input.Contains("confused"))
-            {
-                empathyPrefix = "Don't worry if this feels overwhelming. Let's take it one step at a time. ";
-            }
+            input = input.ToLower().Trim();
 
-                                 
-            if (input.Contains("interested in "))
+            // ---------------------------------------------------------
+            // QUIZ MODULE
+            // ---------------------------------------------------------
+            if (QuizModeEnabled)
             {
-                
-                string[] words = input.Split(new string[] { "interested in " }, StringSplitOptions.None);
-                if (words.Length > 1)
+                if (input == "stop trivia" || input == "exit")
                 {
-                    FavoriteTopic = words[1].Trim(new char[] { '.', '!', '?', ' ' }); // Clean up punctuation
-                  
-                    return FormatOutput($"[Agent]: Great! I'll remember that you're interested in {FavoriteTopic}. It's a crucial part of staying safe online.");
+                    QuizModeEnabled = false;
+                    RecordActivity($"Trivia challenge aborted at Q{ActiveQuestion + 1}.");
+                    return FormatOutput("[System]: Trivia mode deactivated. Resuming standard operations.");
                 }
-            }
 
-                   
-            if (input == "tell me more" || input == "another tip" || input == "explain more")
-            {
-                if (!string.IsNullOrEmpty(LastDiscussedTopic))
+                TriviaItem currentQ = TriviaBank[ActiveQuestion];
+                string feedback = "";
+
+                if (input == currentQ.ValidAnswer || input.StartsWith(currentQ.ValidAnswer))
                 {
-                    
-                    input = LastDiscussedTopic;
+                    TotalPoints++;
+                    feedback = $"[System]: Correct! {currentQ.Reason}\n\n";
                 }
                 else
                 {
-                    
-                    return FormatOutput("[Agent]: I'm not sure what you'd like more details on. What specific topic should we discuss?");
+                    feedback = $"[System]: Incorrect. The right answer is {currentQ.ValidAnswer.ToUpper()}. {currentQ.Reason}\n\n";
                 }
-            }
 
-            
-            if (input.Contains("phishing tip") || input.Contains("phishing tips"))
-            {
-                LastDiscussedTopic = "phishing tip"; // Save to memory
-                int index = randomGen.Next(phishingTips.Count);
-                
-                return FormatOutput($"[Agent]: {empathyPrefix}{phishingTips[index]}");
-            }
+                ActiveQuestion++;
 
-            // Loop through the Dictionary to find matching keywords
-            foreach (var keyword in keywordResponses.Keys)
-            {
-                if (input.Contains(keyword))
+                if (ActiveQuestion >= TriviaBank.Count)
                 {
-                    LastDiscussedTopic = keyword; 
+                    QuizModeEnabled = false;
+                    RecordActivity($"Trivia finished. Score: {TotalPoints}/{TriviaBank.Count}.");
+                    string grade = TotalPoints >= 9 ? "Outstanding work! Your cyber defenses are strong." :
+                                   TotalPoints >= 6 ? "Fair performance. Review basic protocols." :
+                                   "Security risk detected. Please review cybersecurity basics.";
 
-                    
-                    string memoryBonus = "";
-                    if (FavoriteTopic == keyword)
+                    return FormatOutput($"{feedback}--- TRIVIA COMPLETE ---\nFinal Score: {TotalPoints}/{TriviaBank.Count}\n{grade}\n\nStandard operations resumed.");
+                }
+                return FormatOutput($"{feedback}{TriviaBank[ActiveQuestion].Inquiry}\n(Provide your answer, or type 'stop trivia')");
+            }
+
+            // ---------------------------------------------------------
+            // NLP & INTENT DETECTION
+            // ---------------------------------------------------------
+            if (input.Contains("trivia") || input.Contains("test me") || input.Contains("start quiz"))
+            {
+                QuizModeEnabled = true;
+                ActiveQuestion = 0;
+                TotalPoints = 0;
+                RecordActivity("Initiated Cybersecurity Trivia.");
+                return FormatOutput($"[System]: Trivia Challenge engaged! {TriviaBank.Count} questions loaded.\n\n{TriviaBank[0].Inquiry}\n(Type your answer)");
+            }
+
+            // Task Intent Detection
+            if ((input.Contains("schedule") || input.Contains("add") || input.Contains("remind")) &&
+                (input.Contains("task") || input.Contains("objective") || input.Contains("to do")))
+            {
+                string newTask = input.Replace("schedule a task to", "").Replace("add a task to", "").Replace("remind me to", "").Trim();
+                try
+                {
+                    using (MySqlConnection conn = new MySqlConnection(dbConnection))
                     {
-                        memoryBonus = $"As someone interested in {FavoriteTopic}, you should definitely know this: ";
+                        conn.Open();
+                        string query = "INSERT INTO UserTasks (Objective) VALUES (@obj)";
+                        using (MySqlCommand cmd = new MySqlCommand(query, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@obj", newTask);
+                            cmd.ExecuteNonQuery();
+                        }
                     }
+                    RecordActivity($"DB: Objective recorded - '{newTask}'");
+                    return FormatOutput($"[System]: Objective successfully registered: '{newTask}'.");
+                }
+                catch (Exception ex) { return FormatOutput($"[System]: DB Fault. ({ex.Message})"); }
+            }
 
-                
-                    return FormatOutput($"[Agent]: {empathyPrefix}{memoryBonus}{keywordResponses[keyword]}"); 
+            // View Tasks
+            if (input.Contains("view objectives") || input.Contains("show tasks") || input.Contains("my list"))
+            {
+                try
+                {
+                    string listData = "[System]: Retrieving current objectives:\n";
+                    using (MySqlConnection conn = new MySqlConnection(dbConnection))
+                    {
+                        conn.Open();
+                        string query = "SELECT RecordID, Objective, IsFinished FROM UserTasks";
+                        using (MySqlCommand cmd = new MySqlCommand(query, conn))
+                        using (MySqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (!reader.HasRows) return FormatOutput("[System]: No pending objectives found.");
+                            while (reader.Read())
+                            {
+                                string status = Convert.ToBoolean(reader["IsFinished"]) ? "[CLOSED]" : "[OPEN]";
+                                listData += $"Record #{reader["RecordID"]}: {reader["Objective"]} {status}\n";
+                            }
+                        }
+                    }
+                    RecordActivity("DB: Objectives retrieved by user.");
+                    return FormatOutput(listData);
+                }
+                catch (Exception ex) { return FormatOutput($"[System]: Connection failure. ({ex.Message})"); }
+            }
+
+            // Complete Task
+            if (input.Contains("close task") || input.Contains("complete task") || input.Contains("finish task"))
+            {
+                string[] segments = input.Split(' ');
+                if (segments.Length > 2 && int.TryParse(segments[2], out int recId))
+                {
+                    try
+                    {
+                        using (MySqlConnection conn = new MySqlConnection(dbConnection))
+                        {
+                            conn.Open();
+                            string query = "UPDATE UserTasks SET IsFinished = 1 WHERE RecordID = @id";
+                            using (MySqlCommand cmd = new MySqlCommand(query, conn))
+                            {
+                                cmd.Parameters.AddWithValue("@id", recId);
+                                if (cmd.ExecuteNonQuery() > 0)
+                                {
+                                    RecordActivity($"DB: Objective #{recId} closed.");
+                                    return FormatOutput($"[System]: Objective #{recId} has been securely marked as closed.");
+                                }
+                                else return FormatOutput($"[System]: Record #{recId} not found in database.");
+                            }
+                        }
+                    }
+                    catch (Exception ex) { return FormatOutput($"[System]: DB Fault. ({ex.Message})"); }
+                }
+                return FormatOutput("[System]: Syntax error. Use 'close task [Number]'.");
+            }
+
+            // ---------------------------------------------------------
+            // ACTIVITY LOG
+            // ---------------------------------------------------------
+            if (input.Contains("history") || input.Contains("activity log") || input.Contains("recent actions"))
+            {
+                if (ActionHistory.Count == 0) return FormatOutput("[System]: System log is currently empty.");
+                string logs = "[System]: Fetching recent system events:\n";
+                int start = Math.Max(0, ActionHistory.Count - 6);
+                for (int i = start; i < ActionHistory.Count; i++) logs += $"{ActionHistory[i]}\n";
+                return FormatOutput(logs);
+            }
+
+            // ---------------------------------------------------------
+            // SENTIMENT, MEMORY, & KEYWORDS
+            // ---------------------------------------------------------
+            string supportText = "";
+            if (input.Contains("worried") || input.Contains("stressed")) supportText = "Security can be stressful, but you are taking the right steps. Let's look at the protocols. ";
+            else if (input.Contains("frustrated") || input.Contains("stuck")) supportText = "Technical issues are frustrating. Let's break this down logically. ";
+
+            if (input.Contains("interested in "))
+            {
+                string[] tokens = input.Split(new string[] { "interested in " }, StringSplitOptions.None);
+                if (tokens.Length > 1)
+                {
+                    FavoriteTopic = tokens[1].Trim(new char[] { '.', '!', '?', ' ' });
+                    RecordActivity($"Memory: Logged user interest: '{FavoriteTopic}'");
+                    return FormatOutput($"[System]: Acknowledged. I have prioritized {FavoriteTopic} in your learning profile.");
                 }
             }
-          
-            return FormatOutput("[Agent]: I'm not sure I understand. Can you try rephrasing?");
+
+            if (input == "expand on that" || input == "next tip" || input == "more details")
+            {
+                if (!string.IsNullOrEmpty(LastDiscussedTopic)) input = LastDiscussedTopic;
+                else return FormatOutput("[System]: Topic undefined. Please specify a subject.");
+            }
+
+            if (input.Contains("phishing tip"))
+            {
+                LastDiscussedTopic = "phishing tip";
+                int idx = randomGen.Next(phishingTips.Count);
+                RecordActivity("Dispensed random security protocol.");
+                return FormatOutput($"[System]: {supportText}{phishingTips[idx]}");
+            }
+
+            foreach (var key in keywordResponses.Keys)
+            {
+                if (input.Contains(key))
+                {
+                    LastDiscussedTopic = key;
+                    string memoryHighlight = (FavoriteTopic == key) ? $"Note: This aligns with your interest in {FavoriteTopic}. " : "";
+                    RecordActivity($"Processed keyword: '{key}'.");
+                    return FormatOutput($"[System]: {supportText}{memoryHighlight}{keywordResponses[key]}");
+                }
+            }
+
+            return FormatOutput("[System]: Command unrecognized. Please query about passwords, scams, or schedule a task.");
         }
-
     }
-
-}    
- 
+}
