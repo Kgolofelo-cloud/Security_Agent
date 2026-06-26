@@ -187,7 +187,7 @@ namespace SecurityAgent
                 catch (Exception ex) { return FormatOutput($"[System]: Connection failure. ({ex.Message})"); }
             }
 
-            // Complete Task
+           
             if (input.Contains("close task") || input.Contains("complete task") || input.Contains("finish task"))
             {
                 string[] segments = input.Split(' ');
