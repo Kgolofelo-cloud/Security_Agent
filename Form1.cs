@@ -30,7 +30,7 @@ namespace SecurityAgent
 
             {
 
-                // Updated Title for the 6th Commit Polish
+                
 
                 this.Text = "CyberDefend Terminal";
 
