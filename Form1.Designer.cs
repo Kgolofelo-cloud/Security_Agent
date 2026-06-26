@@ -43,7 +43,7 @@
             rtbChatArea.Size = new Size(1001, 337);
             rtbChatArea.TabIndex = 0;
             rtbChatArea.Text = "";
-            rtbChatArea.TextChanged += rtbChatArea_TextChanged;
+            
             // 
             // txtUserInput
             // 

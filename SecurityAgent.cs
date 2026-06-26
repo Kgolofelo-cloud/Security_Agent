@@ -34,7 +34,7 @@ namespace SecurityAgent
         private List<TriviaItem> TriviaBank;
 
         // DB String - STUDENT MUST ENTER THEIR PASSWORD HERE
-        private string dbConnection = "Server=127.0.0.1;Database=CyberDefendDB;Uid=root;Pwd=YOUR_PASSWORD_HERE;";
+        private string dbConnection = "Server=127.0.0.1;Database=CyberDefendDB;Uid=root;Pwd=1234;";
 
         public SecurityAgent()
         {
