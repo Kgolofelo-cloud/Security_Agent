@@ -58,7 +58,7 @@ namespace SecurityAgent
                 { "privacy", "Regularly audit app permissions on your phone to protect your privacy." }
             };
 
-            // Distinct set of 11 questions
+            
             TriviaBank = new List<TriviaItem>
             {
                 new TriviaItem { Inquiry = "Q1: What is malware?\nA) Bad hardware\nB) Malicious software\nC) A network error", ValidAnswer = "b", Reason = "Malware includes viruses, ransomware, and spyware designed to harm your device." },
